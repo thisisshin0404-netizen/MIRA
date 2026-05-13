@@ -1,5 +1,5 @@
 # MIRA
-*Modeling In Radical Agony*
+**M**odeling **I**n **R**adical **A**gony
 
 Multiscale smilation for investigating physical behavior of particles and molecules/polymers under extreme conditions like space environment (Not developed yet)
 
