@@ -8,9 +8,9 @@ MIRA is a minimal 2D molecular dynamics toy code written in C++ and exposed to P
 
 ## Next MIRA
 ### Atomistic scale
-- improve molecular dynamics (MD) with a more stable integration algorithm
+- improve molecular dynamics with a more stable integration algorithm
 - generate trajectories
-- evaluate the simulation against the Boltzmann distribution
+- evaluate the simulation by plotting the Boltzmann distribution
 
 ### Coarse-grained / mesoscopic scale
 - particle-based coarse-grained modeling is under discussion
