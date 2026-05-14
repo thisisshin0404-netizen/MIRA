@@ -1,5 +1,5 @@
 # MIRA
-**M**ultiscale Simulat**I**on in **R**adical **A**gony
+**M**ultiscale S**I**mulation in **R**adical **A**gony
 
 Multiscale smilation for investigating physical behavior of particles, polymers and biomolecules under extreme conditions like space environment (Not developed yet)
 
