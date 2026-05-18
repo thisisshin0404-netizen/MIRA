@@ -8,6 +8,7 @@ Multiscale smilation for investigating physical behavior of particles, polymers 
 cmake -S . -B build
 cmake --build build
 PYTHONPATH=build python run/test.py
+```
 
 ## Current MIRA (18 May 2026)
 MIRA now supports C++-side initialization of particle positions. The number of particles, box size, and initialization rule are given from Python, while the actual initial placement is generated in C++.
