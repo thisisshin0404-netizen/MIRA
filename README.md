@@ -10,6 +10,20 @@ cmake --build build
 PYTHONPATH=build python run/test.py
 ```
 
+## How to use?
+
+| Parameter | Description |
+|---|---|
+| `n_particles` | Number of particles. |
+| `box_length` | Side length of the square periodic box. |
+| `seed` | Random seed for reproducible initialization. |
+| `n_steps` | Number of simulation steps. |
+| `integrator` | Time integrator: `"verlet"` or `"euler"`. |
+| `dt` | Time step size. |
+| `epsilon` | Lennard-Jones energy scale. |
+| `sigma` | Lennard-Jones length scale. |
+| `print_every` | Print interval for energy output. |
+
 ## Current MIRA (28 May 2026)
 MIRA now supports random C++-side initialization of particle positions. The number of particles, box size, and random seed are given from Python, while the actual initial placement is generated in C++.
 
