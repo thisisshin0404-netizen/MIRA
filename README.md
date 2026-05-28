@@ -22,13 +22,9 @@ Two time integration rules are currently available:
 The simulation step uses periodic boundary conditions and Lennard-Jones 12-6 interactions.
 
 ## Previous MIRA 
-### (18 May 2026)
-MIRA supported C++-side initialization of particle positions. The number of particles, box size, and initialization rule were given from Python, while the actual initial placement was generated in C++.
+(18 May 2026) MIRA supported C++-side initialization of particle positions. The number of particles, box size, and initialization rule were given from Python, while the actual initial placement was generated in C++. The simulation step used periodic boundary conditions, Lennard-Jones 12-6 interactions, and Euler time integration.
 
-The simulation step used periodic boundary conditions, Lennard-Jones 12-6 interactions, and Euler time integration.
-
-### (12 May 2026)
-MIRA was a minimal 2D molecular dynamics toy code written in C++ and exposed to Python with pybind11. It implemented a very basic particle simulation with periodic boundary conditions, Lennard-Jones 12-6 interactions, and Euler time integration.
+(12 May 2026) MIRA was a minimal 2D molecular dynamics toy code written in C++ and exposed to Python with pybind11.
 
 ## Next MIRA
 ### Atomistic scale
