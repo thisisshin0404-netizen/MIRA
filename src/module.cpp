@@ -68,44 +68,13 @@ static Vec2 minimum_image(Vec2 dr, double box_length) {
     return dr;
 }
 
-static bool is_perfect_square(std::size_t n) {
-    const auto root = static_cast<std::size_t>(std::llround(std::sqrt(static_cast<double>(n))));
-    return root * root == n;
-}
-
-static std::vector<std::vector<double>> initialize_square_positions(std::size_t n_particles,
-                                                                    double box_length) {
-    if (n_particles == 0) {
-        throw std::invalid_argument("n_particles must be greater than zero.");
-    }
-    if (!is_perfect_square(n_particles)) {
-        throw std::invalid_argument(
-            "For position_rule='square', n_particles must be a perfect square: 4, 9, 16, 25, ...");
-    }
-
-    const auto n_side = static_cast<std::size_t>(std::llround(std::sqrt(static_cast<double>(n_particles))));
-    const double spacing = box_length / static_cast<double>(n_side);
-
-    std::vector<std::vector<double>> positions;
-    positions.reserve(n_particles);
-
-    for (std::size_t iy = 0; iy < n_side; ++iy) {
-        for (std::size_t ix = 0; ix < n_side; ++ix) {
-            const double x = (static_cast<double>(ix) + 0.5) * spacing;
-            const double y = (static_cast<double>(iy) + 0.5) * spacing;
-            positions.push_back({x, y});
-        }
-    }
-
-    return positions;
-}
-
 static std::vector<std::vector<double>> initialize_random_positions(std::size_t n_particles,
                                                                     double box_length,
                                                                     unsigned int seed) {
     if (n_particles == 0) {
         throw std::invalid_argument("n_particles must be greater than zero.");
     }
+    validate_positive(box_length, "box_length");
 
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> dist(0.0, box_length);
@@ -122,19 +91,8 @@ static std::vector<std::vector<double>> initialize_random_positions(std::size_t 
 
 static std::vector<std::vector<double>> initialize_positions(std::size_t n_particles,
                                                             double box_length,
-                                                            const std::string& position_rule,
-                                                            unsigned int seed) {
-    validate_positive(box_length, "box_length");
-
-    if (position_rule == "square") {
-        return initialize_square_positions(n_particles, box_length);
-    }
-
-    if (position_rule == "random") {
-        return initialize_random_positions(n_particles, box_length, seed);
-    }
-
-    throw std::invalid_argument("Unknown position_rule. Use 'square' or 'random'.");
+                                                            unsigned int seed = 42) {
+    return initialize_random_positions(n_particles, box_length, seed);
 }
 
 static std::vector<std::vector<double>> initialize_velocities(std::size_t n_particles) {
@@ -146,9 +104,8 @@ static std::vector<std::vector<double>> initialize_velocities(std::size_t n_part
 
 static py::dict initialize_system(std::size_t n_particles,
                                   double box_length,
-                                  const std::string& position_rule = "square",
                                   unsigned int seed = 42) {
-    auto positions = initialize_positions(n_particles, box_length, position_rule, seed);
+    auto positions = initialize_positions(n_particles, box_length, seed);
     auto velocities = initialize_velocities(n_particles);
 
     py::dict result;
@@ -156,7 +113,7 @@ static py::dict initialize_system(std::size_t n_particles,
     result["velocities"] = velocities;
     result["box_length"] = box_length;
     result["n_particles"] = n_particles;
-    result["position_rule"] = position_rule;
+    result["position_rule"] = "random";
     result["seed"] = seed;
     return result;
 }
@@ -214,25 +171,28 @@ static double compute_kinetic_energy(const std::vector<Vec2>& velocities) {
     return kinetic_energy;
 }
 
-static py::dict step(const std::vector<std::vector<double>>& positions_in,
-                     const std::vector<std::vector<double>>& velocities_in,
-                     double dt,
-                     double box_length,
-                     double epsilon,
-                     double sigma) {
-    validate_positive(dt, "dt");
-    validate_positive(box_length, "box_length");
+static py::dict make_step_result(const std::vector<Vec2>& positions,
+                                 const std::vector<Vec2>& velocities,
+                                 double potential_energy,
+                                 const std::string& integrator) {
+    const double kinetic_energy = compute_kinetic_energy(velocities);
 
-    auto positions = py_to_vec2(positions_in, "positions");
-    auto velocities = py_to_vec2(velocities_in, "velocities");
+    py::dict result;
+    result["positions"] = vec2_to_py(positions);
+    result["velocities"] = vec2_to_py(velocities);
+    result["potential_energy"] = potential_energy;
+    result["kinetic_energy"] = kinetic_energy;
+    result["total_energy"] = potential_energy + kinetic_energy;
+    result["integrator"] = integrator;
+    return result;
+}
 
-    if (positions.size() != velocities.size()) {
-        throw std::invalid_argument("positions and velocities must contain the same number of particles.");
-    }
-    if (positions.empty()) {
-        throw std::invalid_argument("At least one particle is required.");
-    }
-
+static py::dict step_euler(std::vector<Vec2> positions,
+                           std::vector<Vec2> velocities,
+                           double dt,
+                           double box_length,
+                           double epsilon,
+                           double sigma) {
     auto force_result = compute_lj_forces(positions, box_length, epsilon, sigma);
 
     for (std::size_t i = 0; i < positions.size(); ++i) {
@@ -246,15 +206,63 @@ static py::dict step(const std::vector<std::vector<double>>& positions_in,
         apply_pbc(positions[i], box_length);
     }
 
-    const double kinetic_energy = compute_kinetic_energy(velocities);
+    return make_step_result(positions, velocities, force_result.potential_energy, "euler");
+}
 
-    py::dict result;
-    result["positions"] = vec2_to_py(positions);
-    result["velocities"] = vec2_to_py(velocities);
-    result["potential_energy"] = force_result.potential_energy;
-    result["kinetic_energy"] = kinetic_energy;
-    result["total_energy"] = force_result.potential_energy + kinetic_energy;
-    return result;
+static py::dict step_verlet(std::vector<Vec2> positions,
+                            std::vector<Vec2> velocities,
+                            double dt,
+                            double box_length,
+                            double epsilon,
+                            double sigma) {
+    const auto old_force_result = compute_lj_forces(positions, box_length, epsilon, sigma);
+
+    for (std::size_t i = 0; i < positions.size(); ++i) {
+        // velocity Verlet position update, mass = 1
+        positions[i].x += velocities[i].x * dt + 0.5 * old_force_result.forces[i].x * dt * dt;
+        positions[i].y += velocities[i].y * dt + 0.5 * old_force_result.forces[i].y * dt * dt;
+        apply_pbc(positions[i], box_length);
+    }
+
+    const auto new_force_result = compute_lj_forces(positions, box_length, epsilon, sigma);
+
+    for (std::size_t i = 0; i < velocities.size(); ++i) {
+        velocities[i].x += 0.5 * (old_force_result.forces[i].x + new_force_result.forces[i].x) * dt;
+        velocities[i].y += 0.5 * (old_force_result.forces[i].y + new_force_result.forces[i].y) * dt;
+    }
+
+    return make_step_result(positions, velocities, new_force_result.potential_energy, "verlet");
+}
+
+static py::dict step(const std::vector<std::vector<double>>& positions_in,
+                     const std::vector<std::vector<double>>& velocities_in,
+                     double dt,
+                     double box_length,
+                     double epsilon,
+                     double sigma,
+                     const std::string& integrator = "verlet") {
+    validate_positive(dt, "dt");
+    validate_positive(box_length, "box_length");
+
+    auto positions = py_to_vec2(positions_in, "positions");
+    auto velocities = py_to_vec2(velocities_in, "velocities");
+
+    if (positions.size() != velocities.size()) {
+        throw std::invalid_argument("positions and velocities must contain the same number of particles.");
+    }
+    if (positions.empty()) {
+        throw std::invalid_argument("At least one particle is required.");
+    }
+
+    if (integrator == "euler") {
+        return step_euler(positions, velocities, dt, box_length, epsilon, sigma);
+    }
+
+    if (integrator == "verlet") {
+        return step_verlet(positions, velocities, dt, box_length, epsilon, sigma);
+    }
+
+    throw std::invalid_argument("Unknown integrator. Use 'euler' or 'verlet'.");
 }
 
 PYBIND11_MODULE(MIRA, m) {
@@ -263,16 +271,14 @@ PYBIND11_MODULE(MIRA, m) {
     m.def("initialize_positions", &initialize_positions,
           py::arg("n_particles"),
           py::arg("box_length"),
-          py::arg("position_rule") = "square",
           py::arg("seed") = 42,
-          "Initialize 2D particle positions using 'square' or 'random'.");
+          "Initialize 2D particle positions randomly.");
 
     m.def("initialize_system", &initialize_system,
           py::arg("n_particles"),
           py::arg("box_length"),
-          py::arg("position_rule") = "square",
           py::arg("seed") = 42,
-          "Initialize positions and zero velocities.");
+          "Initialize random positions and zero velocities.");
 
     m.def("step", &step,
           py::arg("positions"),
@@ -281,5 +287,6 @@ PYBIND11_MODULE(MIRA, m) {
           py::arg("box_length"),
           py::arg("epsilon"),
           py::arg("sigma"),
-          "Advance the system by one semi-implicit Euler step.");
+          py::arg("integrator") = "verlet",
+          "Advance the system by one step using 'euler' or 'verlet'.");
 }
