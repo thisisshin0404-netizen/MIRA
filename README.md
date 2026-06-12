@@ -42,7 +42,7 @@ The simulation step uses periodic boundary conditions and Lennard-Jones 12-6 int
 
 ## Next MIRA
 ### Atomistic scale
-- improve molecular dynamics with a more stable integration algorithm
+- generate data log from simulation
 - generate trajectories
 - evaluate the simulation by plotting the Boltzmann distribution
 
